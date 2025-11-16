@@ -1,0 +1,51 @@
+{
+  "name": "@voicecast/ai-features",
+  "version": "1.0.0",
+  "description": "AI Features integration for VoiceCast platform - Real-time audio processing, AI assistants, content generation, translation, and security",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest",
+    "lint": "eslint src --ext .ts,.tsx"
+  },
+  "keywords": [
+    "ai",
+    "audio-processing",
+    "whisper",
+    "claude",
+    "gpt-4",
+    "dall-e",
+    "translation",
+    "deepfake-detection"
+  ],
+  "author": "VoiceCast Team",
+  "license": "MIT",
+  "dependencies": {
+    "openai": "^4.20.1",
+    "@anthropic-ai/sdk": "^0.12.0",
+    "anthropic": "^0.12.0",
+    "langchain": "^0.1.0",
+    "@langchain/openai": "^0.0.12",
+    "@langchain/anthropic": "^0.0.5",
+    "@pinecone-database/pinecone": "^1.1.2",
+    "ws": "^8.16.0",
+    "stream": "^0.0.2",
+    "axios": "^1.6.2",
+    "form-data": "^4.0.0",
+    "ffmpeg-static": "^5.2.0",
+    "node-speaker": "^0.5.5",
+    "wav": "^1.0.2",
+    "tone": "^14.7.77"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/parser": "^6.17.0",
+    "@typescript-eslint/eslint-plugin": "^6.17.0"
+  }
+}
