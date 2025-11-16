@@ -1,0 +1,23 @@
+{
+  "name": "voicecast-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "High-quality audio streaming platform built with Tauri, React, and Rust",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/desktop",
+    "dev:desktop": "npm run dev --workspace=apps/desktop",
+    "build": "npm run build --workspace=apps/desktop",
+    "tauri": "cd apps/desktop && npm run tauri",
+    "tauri:dev": "cd src-tauri && cargo tauri dev",
+    "tauri:build": "cd src-tauri && cargo tauri build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3"
+  }
+}
