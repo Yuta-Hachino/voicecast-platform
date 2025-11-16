@@ -2,31 +2,45 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { useEffect, useState, useCallback, useRef } from 'react';
 
-interface AudioDevice {
+export interface AudioDevice {
   id: string;
   name: string;
   type: 'input' | 'output';
 }
 
-interface StreamConfig {
+export interface StreamConfig {
   quality: 'low' | 'medium' | 'high' | 'ultra';
   bitrate: number;
   sampleRate: number;
   channels: number;
 }
 
-interface AudioLevels {
+export interface AudioLevels {
   inputLevel: number;
   outputLevel: number;
   peak: number;
   rms: number;
 }
 
+export interface EffectSettings {
+  eq?: {
+    bass?: number;
+    mid?: number;
+    treble?: number;
+  };
+  compressor?: {
+    threshold?: number;
+    ratio?: number;
+    attack?: number;
+    release?: number;
+  };
+}
+
 interface EffectParams {
   params: Record<string, number>;
 }
 
-export function useAudio() {
+export const useAudio = () => {
   const [devices, setDevices] = useState<AudioDevice[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [audioLevels, setAudioLevels] = useState<AudioLevels>({
@@ -104,11 +118,32 @@ export function useAudio() {
 
   const applyEffect = useCallback(async (
     effectType: 'eq' | 'compressor' | 'reverb' | 'noise_gate',
-    params: Record<string, number>
+    params: Record<string, number> | EffectSettings
   ) => {
     try {
-      const effectParams: EffectParams = { params };
-      await invoke('apply_audio_effect', { effectType, params: effectParams });
+      // Handle both old-style params and new EffectSettings format
+      let effectParams: Record<string, number>;
+
+      if ('eq' in params || 'compressor' in params) {
+        // New EffectSettings format - flatten it
+        const settings = params as EffectSettings;
+        effectParams = {};
+
+        if (settings.eq) {
+          Object.assign(effectParams, settings.eq);
+        }
+        if (settings.compressor) {
+          Object.assign(effectParams, settings.compressor);
+        }
+      } else {
+        // Old-style params
+        effectParams = params as Record<string, number>;
+      }
+
+      await invoke('apply_audio_effect', {
+        effectType,
+        params: { params: effectParams } as EffectParams
+      });
     } catch (error) {
       console.error('Failed to apply effect:', error);
       throw error;
@@ -144,4 +179,4 @@ export function useAudio() {
     setMonitoring,
     refreshDevices: loadDevices,
   };
-}
+};
