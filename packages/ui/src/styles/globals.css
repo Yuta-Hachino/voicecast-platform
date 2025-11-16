@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border-default;
+  }
+
+  body {
+    @apply bg-bg-primary text-text-primary antialiased;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-primary to-brand-secondary;
+  }
+
+  .glass {
+    @apply bg-white/5 backdrop-blur-xl border-white/10;
+  }
+}
