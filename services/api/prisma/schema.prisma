@@ -1,0 +1,664 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["jsonProtocol", "fullTextSearch", "tracing"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  username        String    @unique @db.VarChar(30)
+  passwordHash    String
+  emailVerified   Boolean   @default(false)
+  twoFactorSecret String?
+
+  // Profile
+  displayName     String    @db.VarChar(50)
+  avatar          String?
+  banner          String?
+  bio             String?   @db.VarChar(500)
+  country         String?   @db.VarChar(2)
+  language        String    @default("en") @db.VarChar(5)
+  timezone        String    @default("UTC")
+
+  // Status
+  status          UserStatus @default(ACTIVE)
+  role            UserRole   @default(USER)
+  verifiedStreamer Boolean   @default(false)
+  partnered       Boolean    @default(false)
+
+  // Settings
+  privacy         Json       @default("{}")
+  notifications   Json       @default("{}")
+  streamSettings  Json       @default("{}")
+
+  // Relations
+  streams         Stream[]
+  recordings      Recording[]
+  followers       Follow[]   @relation("followers")
+  following       Follow[]   @relation("following")
+  sentMessages    ChatMessage[]
+  sentGifts       Gift[]     @relation("sender")
+  receivedGifts   Gift[]     @relation("receiver")
+  blockedUsers    Block[]    @relation("blocker")
+  blockedBy       Block[]    @relation("blocked")
+  reports         Report[]   @relation("reporter")
+  reportedContent Report[]   @relation("reported")
+
+  // Monetization
+  wallet          Wallet?
+  subscriptions   Subscription[] @relation("subscriber")
+  subscribedTo    Subscription[] @relation("creator")
+  transactions    Transaction[]
+  payouts         Payout[]
+
+  // Analytics
+  streamAnalytics StreamAnalytics[]
+  activities      Activity[]
+
+  // Metadata
+  lastActiveAt    DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  deletedAt       DateTime?
+
+  @@index([username])
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Stream {
+  id              String     @id @default(cuid())
+  title           String     @db.VarChar(100)
+  description     String?    @db.VarChar(500)
+  thumbnail       String?
+  streamKey       String     @unique @default(cuid())
+
+  // Configuration
+  isLive          Boolean    @default(false)
+  visibility      StreamVisibility @default(PUBLIC)
+  maxViewers      Int        @default(10000)
+  audioQuality    AudioQuality @default(HIGH)
+  allowChat       Boolean    @default(true)
+  allowGifts      Boolean    @default(true)
+  subscribersOnly Boolean    @default(false)
+  ageRestricted   Boolean    @default(false)
+
+  // Streaming Data
+  rtmpUrl         String?
+  playbackUrl     String?
+  recordingEnabled Boolean   @default(false)
+
+  // Relations
+  hostId          String
+  host            User       @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  categoryId      String?
+  category        Category?  @relation(fields: [categoryId], references: [id])
+  tags            Tag[]
+  viewers         Viewer[]
+  messages        ChatMessage[]
+  gifts           Gift[]
+  recordings      Recording[]
+  analytics       StreamAnalytics[]
+  moderators      StreamModerator[]
+
+  // Scheduling
+  scheduledFor    DateTime?
+  actualStartTime DateTime?
+  endedAt         DateTime?
+
+  // Statistics
+  peakViewers     Int        @default(0)
+  totalViewers    Int        @default(0)
+  totalMessages   Int        @default(0)
+  totalGifts      Int        @default(0)
+  totalRevenue    Decimal    @default(0) @db.Decimal(10, 2)
+  duration        Int        @default(0) // seconds
+
+  // Metadata
+  metadata        Json       @default("{}")
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([hostId])
+  @@index([isLive])
+  @@index([categoryId])
+  @@index([scheduledFor])
+  @@index([createdAt])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique @db.VarChar(50)
+  slug        String   @unique @db.VarChar(50)
+  description String?  @db.VarChar(200)
+  icon        String?
+  color       String?  @db.VarChar(7)
+  order       Int      @default(0)
+
+  streams     Stream[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique @db.VarChar(30)
+  slug      String   @unique @db.VarChar(30)
+  count     Int      @default(0)
+
+  streams   Stream[]
+
+  createdAt DateTime @default(now())
+
+  @@index([slug])
+  @@index([count])
+}
+
+model Viewer {
+  id           String   @id @default(cuid())
+  streamId     String
+  stream       Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  userId       String?
+
+  // Viewer info
+  sessionId    String   @unique
+  ipAddress    String
+  userAgent    String?
+  country      String?  @db.VarChar(2)
+
+  // Timing
+  joinedAt     DateTime @default(now())
+  leftAt       DateTime?
+  duration     Int      @default(0) // seconds
+
+  @@unique([streamId, sessionId])
+  @@index([streamId])
+  @@index([userId])
+  @@index([joinedAt])
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  streamId  String
+  stream    Stream      @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  content   String      @db.VarChar(500)
+  type      MessageType @default(TEXT)
+
+  // Metadata
+  metadata  Json        @default("{}")
+  deleted   Boolean     @default(false)
+  deletedAt DateTime?
+
+  createdAt DateTime    @default(now())
+
+  @@index([streamId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Gift {
+  id         String   @id @default(cuid())
+  streamId   String
+  stream     Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  senderId   String
+  sender     User     @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId String
+  receiver   User     @relation("receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  giftType   String   @db.VarChar(50)
+  giftName   String   @db.VarChar(50)
+  giftIcon   String?
+
+  // Amount
+  coins      Int
+  value      Decimal  @db.Decimal(10, 2)
+  currency   String   @db.VarChar(3)
+
+  // Display
+  message    String?  @db.VarChar(200)
+  isPublic   Boolean  @default(true)
+
+  createdAt  DateTime @default(now())
+
+  @@index([streamId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  follower    User     @relation("following", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  // Settings
+  notifications Boolean @default(true)
+
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@index([createdAt])
+}
+
+model Subscription {
+  id         String           @id @default(cuid())
+  subscriberId String
+  subscriber User            @relation("subscriber", fields: [subscriberId], references: [id], onDelete: Cascade)
+  creatorId  String
+  creator    User            @relation("creator", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  tier       SubscriptionTier @default(BASIC)
+  status     SubscriptionStatus @default(ACTIVE)
+
+  // Billing
+  amount     Decimal         @db.Decimal(10, 2)
+  currency   String          @db.VarChar(3)
+  interval   String          @db.VarChar(20) // monthly, yearly
+
+  // Stripe
+  stripeSubscriptionId String? @unique
+  stripeCustomerId     String?
+
+  // Dates
+  startDate     DateTime     @default(now())
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAt      DateTime?
+  canceledAt    DateTime?
+  endedAt       DateTime?
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([subscriberId, creatorId])
+  @@index([subscriberId])
+  @@index([creatorId])
+  @@index([status])
+}
+
+model Wallet {
+  id              String     @id @default(cuid())
+  userId          String     @unique
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Balances
+  coins           Int        @default(0)
+  gems            Int        @default(0)
+  earnings        Decimal    @default(0) @db.Decimal(10, 2)
+  pendingEarnings Decimal    @default(0) @db.Decimal(10, 2)
+  totalEarnings   Decimal    @default(0) @db.Decimal(10, 2)
+  totalWithdrawn  Decimal    @default(0) @db.Decimal(10, 2)
+
+  // Payment Methods
+  stripeCustomerId    String?
+  stripeAccountId     String?
+  paypalEmail         String?
+  bankAccount         Json?
+
+  // Relations
+  transactions    Transaction[]
+  payouts         Payout[]
+
+  // Settings
+  minPayout       Decimal    @default(50) @db.Decimal(10, 2)
+  payoutSchedule  PayoutSchedule @default(MONTHLY)
+  currency        String     @default("USD") @db.VarChar(3)
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model Transaction {
+  id              String     @id @default(cuid())
+  type            TransactionType
+  status          TransactionStatus @default(PENDING)
+
+  // Parties
+  userId          String
+  user            User       @relation(fields: [userId], references: [id])
+  walletId        String
+  wallet          Wallet     @relation(fields: [walletId], references: [id])
+
+  // Amount
+  amount          Decimal    @db.Decimal(10, 2)
+  currency        String     @db.VarChar(3)
+  coins           Int?
+  gems            Int?
+
+  // Payment Details
+  paymentMethod   String?
+  stripePaymentId String?
+  paypalOrderId   String?
+
+  // Metadata
+  description     String?
+  metadata        Json       @default("{}")
+  failureReason   String?
+
+  createdAt       DateTime   @default(now())
+  completedAt     DateTime?
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model Payout {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  walletId    String
+  wallet      Wallet       @relation(fields: [walletId], references: [id])
+
+  amount      Decimal      @db.Decimal(10, 2)
+  currency    String       @db.VarChar(3)
+  status      PayoutStatus @default(PENDING)
+
+  // Payment details
+  method      String       @db.VarChar(50)
+  destination Json
+
+  // Stripe
+  stripePayoutId String?   @unique
+
+  // Metadata
+  failureReason String?
+  metadata      Json       @default("{}")
+
+  requestedAt   DateTime   @default(now())
+  processedAt   DateTime?
+  completedAt   DateTime?
+
+  @@index([userId])
+  @@index([status])
+  @@index([requestedAt])
+}
+
+model Recording {
+  id          String   @id @default(cuid())
+  streamId    String
+  stream      Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  title       String   @db.VarChar(100)
+  description String?  @db.VarChar(500)
+  thumbnail   String?
+
+  // File info
+  url         String
+  duration    Int      // seconds
+  fileSize    Int      // bytes
+  format      String   @db.VarChar(20)
+
+  // Visibility
+  visibility  RecordingVisibility @default(PUBLIC)
+
+  // Statistics
+  views       Int      @default(0)
+  likes       Int      @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([streamId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model StreamModerator {
+  id        String   @id @default(cuid())
+  streamId  String
+  stream    Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  userId    String
+
+  // Permissions
+  canDeleteMessages Boolean @default(true)
+  canBanUsers       Boolean @default(false)
+  canManageStream   Boolean @default(false)
+
+  addedAt   DateTime @default(now())
+
+  @@unique([streamId, userId])
+  @@index([streamId])
+  @@index([userId])
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blocker   User     @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  reason    String?  @db.VarChar(200)
+
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+}
+
+model Report {
+  id         String       @id @default(cuid())
+  reporterId String
+  reporter   User         @relation("reporter", fields: [reporterId], references: [id])
+  reportedId String
+  reported   User         @relation("reported", fields: [reportedId], references: [id])
+
+  type       ReportType
+  reason     String       @db.VarChar(500)
+  status     ReportStatus @default(PENDING)
+
+  // Content reference
+  contentType String?     @db.VarChar(50)
+  contentId   String?
+
+  // Resolution
+  resolvedBy  String?
+  resolution  String?     @db.VarChar(500)
+
+  createdAt   DateTime    @default(now())
+  resolvedAt  DateTime?
+
+  @@index([reporterId])
+  @@index([reportedId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model StreamAnalytics {
+  id              String   @id @default(cuid())
+  streamId        String
+  stream          Stream   @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+
+  timestamp       DateTime @default(now())
+
+  // Metrics
+  viewerCount     Int
+  chatMessages    Int      @default(0)
+  giftsReceived   Int      @default(0)
+  revenue         Decimal  @default(0) @db.Decimal(10, 2)
+
+  // Engagement
+  avgWatchTime    Int      @default(0) // seconds
+  peakViewers     Int      @default(0)
+  uniqueViewers   Int      @default(0)
+
+  // Technical
+  bitrate         Int?
+  quality         String?  @db.VarChar(20)
+  latency         Int?     // ms
+
+  @@index([streamId])
+  @@index([userId])
+  @@index([timestamp])
+}
+
+model Activity {
+  id         String       @id @default(cuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type       ActivityType
+  action     String       @db.VarChar(100)
+
+  // Target
+  targetType String?      @db.VarChar(50)
+  targetId   String?
+
+  // Metadata
+  metadata   Json         @default("{}")
+  ipAddress  String?
+  userAgent  String?
+
+  createdAt  DateTime     @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// Enums
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+  DELETED
+}
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum StreamVisibility {
+  PUBLIC
+  FOLLOWERS_ONLY
+  SUBSCRIBERS_ONLY
+  PRIVATE
+}
+
+enum AudioQuality {
+  LOW      // 64kbps
+  MEDIUM   // 128kbps
+  HIGH     // 256kbps
+  ULTRA    // 510kbps
+}
+
+enum MessageType {
+  TEXT
+  EMOTE
+  SYSTEM
+  GIFT
+}
+
+enum SubscriptionTier {
+  BASIC
+  PREMIUM
+  VIP
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  TRIALING
+}
+
+enum TransactionType {
+  COIN_PURCHASE
+  GEM_PURCHASE
+  GIFT_SENT
+  GIFT_RECEIVED
+  SUBSCRIPTION
+  DONATION
+  PAYOUT
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum PayoutSchedule {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+enum RecordingVisibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
+enum ReportType {
+  SPAM
+  HARASSMENT
+  HATE_SPEECH
+  SEXUAL_CONTENT
+  VIOLENCE
+  COPYRIGHT
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+enum ActivityType {
+  LOGIN
+  LOGOUT
+  STREAM_START
+  STREAM_END
+  FOLLOW
+  UNFOLLOW
+  SUBSCRIBE
+  UNSUBSCRIBE
+  GIFT_SENT
+  PROFILE_UPDATE
+  SETTINGS_CHANGE
+}
