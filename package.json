@@ -1,0 +1,48 @@
+{
+  "name": "voicecast-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "High-quality audio streaming platform built with Tauri, React, and Rust",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/desktop",
+    "dev:desktop": "npm run dev --workspace=apps/desktop",
+    "dev:ui": "npm run dev --workspace=packages/ui",
+    "dev:api": "npm run dev --workspace=services/api",
+    "dev:admin": "npm run dev --workspace=apps/admin",
+    "dev:all": "concurrently \"npm:dev:api\" \"npm:dev:desktop\" \"npm:dev:admin\"",
+    "build": "npm run build --workspace=packages/ui && npm run build --workspace=packages/ai-features && npm run build --workspace=apps/desktop",
+    "build:all": "npm run build --workspaces --if-present",
+    "build:desktop": "npm run tauri build",
+    "build:mobile:ios": "npm run tauri ios build --workspace=apps/mobile",
+    "build:mobile:android": "npm run tauri android build --workspace=apps/mobile",
+    "tauri": "cd apps/desktop && npm run tauri",
+    "tauri:dev": "cd src-tauri && cargo tauri dev",
+    "tauri:build": "cd src-tauri && cargo tauri build",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "db:migrate": "npm run prisma migrate dev --workspace=services/api",
+    "db:seed": "npm run prisma db seed --workspace=services/api",
+    "db:studio": "npm run prisma studio --workspace=services/api",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules services/*/node_modules",
+    "clean:build": "rm -rf apps/*/dist packages/*/dist services/*/dist"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.54.0",
+    "prettier": "^3.1.0",
+    "typescript": "^5.3.3"
+  }
+}

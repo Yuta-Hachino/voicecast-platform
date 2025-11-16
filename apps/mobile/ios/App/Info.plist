@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>VoiceCast</string>
+    <key>CFBundleDisplayName</key>
+    <string>VoiceCast</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.voicecast.app</string>
+    <key>CFBundleVersion</key>
+    <string>1.0.0</string>
+
+    <!-- Permissions -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>VoiceCast needs microphone access for audio streaming</string>
+    <key>NSCameraUsageDescription</key>
+    <string>VoiceCast needs camera access for profile photos</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>VoiceCast needs photo library access to upload images</string>
+
+    <!-- Background Modes -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>audio</string>
+        <string>fetch</string>
+        <string>remote-notification</string>
+        <string>voip</string>
+    </array>
+
+    <!-- Audio Session -->
+    <key>UIRequiresPersistentWiFi</key>
+    <true/>
+
+    <!-- URL Schemes -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>voicecast</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>
